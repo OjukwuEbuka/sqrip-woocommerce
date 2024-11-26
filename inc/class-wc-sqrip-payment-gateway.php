@@ -322,6 +322,7 @@ class WC_Sqrip_Payment_Gateway extends WC_Payment_Gateway
                     'random' => __('Random number', 'sqrip-swiss-qr-invoice'),
                     'order_number' => __('Order number', 'sqrip-swiss-qr-invoice'),
                 ),
+                'default' => 'random',
                 'class' => 'qrinvoice-tab'
             ),
             'due_date' => array(

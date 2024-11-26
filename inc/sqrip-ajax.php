@@ -130,9 +130,17 @@ function sqrip_validation_token_ajax()
 {
     if (!$_POST['token']) return;
 
-    $endpoint = 'details';
+    $endpoint = 'details';    
+    $plugin_version = '';
+    $plugins = get_plugins();
+    $sqrip_info = array_filter($plugins, fn($item) => $item["Name"] == "sqrip.ch");
+    
+    if ($sqrip_info) {
+        $plugin_version = array_values($sqrip_info)[0]['Version'];
+    }
     $args = sqrip_prepare_remote_args('', 'GET', $_POST['token']);
-    $response = wp_remote_request(SQRIP_ENDPOINT . $endpoint, $args);
+    $params = $plugin_version ? "?version=".$plugin_version : "";
+    $response = wp_remote_request(SQRIP_ENDPOINT . $endpoint . $params, $args);
     $response_code = wp_remote_retrieve_response_code($response);
 
     switch ($response_code) {
