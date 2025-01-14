@@ -4,7 +4,7 @@
  * Plugin Name:             sqrip.ch
  * Plugin URI:              https://sqrip.ch/
  * Description:             sqrip – A comprehensive, flexible and clever WooCommerce finance tool for the most widely used payment method in Switzerland: the bank transfers.
- * Version:                 1.8.4
+ * Version:                 1.8.5
  * Author:                  netmex digital gmbh
  * Author URI:              https://sqrip.ch/
  */
@@ -28,7 +28,7 @@ if (is_multisite()) {
     }
 }
 
-define('SQRIP_ENDPOINT', 'https://beta.sqrip.ch/api/');
+define('SQRIP_ENDPOINT', 'https://api.sqrip.ch/api/');
 define('SQRIP_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
 require_once __DIR__ . '/inc/functions.php';
@@ -188,8 +188,11 @@ add_action('admin_enqueue_scripts', function () {
     }
 
     global $post_type;
+    $screen = get_current_screen();
+    // error_log("POST TYPE:: shop_order".json_encode($post_type)." :: ".json_encode($screen));
 
-    if ($post_type == 'shop_order') {
+    if (is_object($screen) && in_array($screen->post_type, ['shop_order', 'shop_order_placehold'])) {
+
         wp_enqueue_script('sqrip-order', plugins_url('js/sqrip-order.js', __FILE__), array('jquery'), '1.1.1', true);
 
         wp_localize_script('sqrip-order', 'sqrip',
@@ -528,34 +531,36 @@ function sqrip_qr_action_order_details_after_order_table($order)
  *  Re-Generate QR-Code in Admin Order page
  *
  * @since 1.0.3
+ * 
+ * Updated from wp_insert_post_data
+ * @since 1.8.5
  */
 
-add_filter('wp_insert_post_data', function ($data, $postarr, $unsanitized_postarr) {
+add_action('woocommerce_process_shop_order_meta', function($post_id) {
 
     if (
-        'shop_order' === $data['post_type'] &&
         (
-            isset($postarr['_sqrip_regenerate_qrcode']) ||
-            isset($postarr['_sqrip_initiate_payment'])
+            isset($_POST['_sqrip_regenerate_qrcode']) ||
+            isset($_POST['_sqrip_initiate_payment'])
         )
     ) {
-        $order = wc_get_order($postarr['ID']);
+        $order = wc_get_order($post_id);
         $order_data = $order->get_data(); // order data
 
         ## BILLING INFORMATION:
-        $order_billing_first_name = $postarr['_billing_first_name'];
-        $order_billing_last_name = $postarr['_billing_last_name'];
-        $order_billing_address = $postarr['_billing_address_1'];
-        $order_billing_address .= $postarr['_billing_address_2'] ? ', ' . $postarr['_billing_address_2'] : "";
-        $order_billing_city = $postarr['_billing_city'];
-        $order_billing_postcode = $postarr['_billing_postcode'];
-        $order_billing_country = $postarr['_billing_country'];
-        $order_billing_company = $postarr['_billing_company'];
+        $order_billing_first_name = $_POST['_billing_first_name'];
+        $order_billing_last_name = $_POST['_billing_last_name'];
+        $order_billing_address = $_POST['_billing_address_1'];
+        $order_billing_address .= $_POST['_billing_address_2'] ? ', ' . $_POST['_billing_address_2'] : "";
+        $order_billing_city = $_POST['_billing_city'];
+        $order_billing_postcode = $_POST['_billing_postcode'];
+        $order_billing_country = $_POST['_billing_country'];
+        $order_billing_company = $_POST['_billing_company'];
 
         $currency_symbol = $order_data['currency'];
         $amount = floatval($order_data['total']);
 
-        $body = sqrip_prepare_qr_code_request_body($currency_symbol, $amount, $postarr['ID']);
+        $body = sqrip_prepare_qr_code_request_body($currency_symbol, $amount, $post_id);
 
         $body["payable_by"] = array(
             'name' => "$order_billing_first_name $order_billing_last_name",
@@ -598,10 +603,10 @@ add_filter('wp_insert_post_data', function ($data, $postarr, $unsanitized_postar
 
         } else {
 
-            if (isset($postarr['_sqrip_regenerate_qrcode'])) {
+            if (isset($_POST['_sqrip_regenerate_qrcode'])) {
                 $order_notes = __('sqrip payment QR code was successfully regenerated', 'sqrip-swiss-qr-invoice');
                 $error_title = __('Renew QR Invoice error:', 'sqrip-swiss-qr-invoice');
-            } elseif (isset($postarr['_sqrip_initiate_payment'])) {
+            } elseif (isset($_POST['_sqrip_initiate_payment'])) {
                 $error_title = __('Initiate sqrip payment error:', 'sqrip-swiss-qr-invoice');
                 $order_notes = __('sqrip payment initiation was successful', 'sqrip-swiss-qr-invoice');
                 $order->set_payment_method('sqrip');
@@ -673,10 +678,7 @@ add_filter('wp_insert_post_data', function ($data, $postarr, $unsanitized_postar
             }
         }
     }
-
-    return $data;
-
-}, 99, 3);
+});
 
 add_action('woocommerce_after_order_refund_item_name', "sqrip_display_refund_qr_code", 10, 1);
 
