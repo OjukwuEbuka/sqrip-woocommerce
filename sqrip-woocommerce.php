@@ -12,11 +12,23 @@
 defined('ABSPATH') || exit;
 
 // Make sure WooCommerce is active
-if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
-    return;
+
+if (is_multisite()) {
+    try {
+        $site_wide_plugins = get_site_option('active_sitewide_plugins', [], true);
+        if (!isset($site_wide_plugins['woocommerce/woocommerce.php'])) {
+            return;
+        }
+    } catch (\Throwable $th) {
+        error_log($th->getMessage());
+    }
+} else {
+    if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
+        return;
+    }
 }
 
-define('SQRIP_ENDPOINT', 'https://api.sqrip.ch/api/');
+define('SQRIP_ENDPOINT', 'https://beta.sqrip.ch/api/');
 define('SQRIP_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
 require_once __DIR__ . '/inc/functions.php';
@@ -1128,6 +1140,12 @@ add_action('woocommerce_thankyou', function ($order_id) {
             $plugin_options = get_option('woocommerce_sqrip_settings', array());
             $plugin_options['qr_order_status'] = 'wc-on-hold';
             update_option('woocommerce_sqrip_settings', $plugin_options);
+            
+            // if (is_multisite()) {                
+            //     $plugin_options = get_site_option('woocommerce_sqrip_settings', array());
+            //     $plugin_options['qr_order_status'] = 'wc-on-hold';
+            //     update_site_option('woocommerce_sqrip_settings', $plugin_options);
+            // }
         }
 
         if ($sqrip_suppress_generation == 'yes' && $sqrip_default_suppressed_status) {
@@ -1239,7 +1257,11 @@ $file_to_rename = 'onetime.php';
 $new_file_name = 'onetime-backup.php';
 
 if (file_exists($current_directory . '/' . $file_to_rename)) {
-    $current_settings = get_option('woocommerce_sqrip_settings', array());
+    if (is_multisite()) {
+        $current_settings = get_site_option('woocommerce_sqrip_settings', array());
+    } else {
+        $current_settings = get_option('woocommerce_sqrip_settings', array());
+    }
 
     if (!$current_settings['status_suppressed']) {
         $current_settings['status_suppressed'] = 'wc-sqrip-default-status';
@@ -1286,7 +1308,11 @@ if (file_exists($current_directory . '/' . $file_to_rename)) {
         $current_settings['first_time_new_awstatus'] = 'no';
     }
 
-    update_option('woocommerce_sqrip_settings', $current_settings);
+    if (is_multisite()) {
+        add_site_option('woocommerce_sqrip_settings', $current_settings);
+    } else {
+        update_option('woocommerce_sqrip_settings', $current_settings);
+    }
 
     rename($current_directory . '/' . $file_to_rename, $current_directory . '/' . $new_file_name);
 }

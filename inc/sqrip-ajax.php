@@ -157,6 +157,7 @@ function sqrip_validation_token_ajax()
 
             $result['message'] = $body_decode->message;
             $result['credits_left'] = $body_decode->credits_left;
+            $result['version'] = $plugin_version;
             // $result['message'] = __("Valid, active API Key", "sqrip-swiss-qr-invoice");
 
             $address = isset($body_decode->user->address) ? $body_decode->user->address : [];
@@ -182,6 +183,7 @@ function sqrip_validation_token_ajax()
         default:
             $result['result'] = false;
             $result['response_code'] = $response_code;
+            $result['version'] = $plugin_version;
             $result['message'] = __("We can't seem to find the API key you're using in our database. Please check your API key, your sqrip settings, then contact our support.", "sqrip-swiss-qr-invoice");
             break;
     }
